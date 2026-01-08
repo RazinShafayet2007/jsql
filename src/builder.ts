@@ -99,42 +99,47 @@ export class QueryBuilder {
     }
 
     let sql = '';
-    const params = [...this._params];
+    const params: any[] = [];
 
     if (this._type === 'select') {
       sql = `SELECT ${this._select.join(', ')} FROM ${this._table}`;
       if (this._where.length > 0) sql += ` WHERE ${this._where.join(' AND ')}`;
       if (this._orderByVal) sql += ` ORDER BY ${this._orderByVal.field} ${this._orderByVal.direction}`;
       if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
+      params.push(...this._params);
     } else if (this._type === 'insert') {
       if (this._values === null || this._values.length === 0) {
         throw new Error('No values provided for INSERT');
       }
       const rows = this._values;
-      const keys = Object.keys(rows[0]);
+      const allKeys = new Set<string>();
+      rows.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
+      const keys = Array.from(allKeys);
       if (keys.length === 0) {
         throw new Error('No columns specified for INSERT');
       }
       const placeholder = `(${keys.map(() => '?').join(', ')})`;
       const placeholders = rows.map(() => placeholder).join(', ');
       sql = `INSERT INTO ${this._table} (${keys.join(', ')}) VALUES ${placeholders}`;
-      for (const row of rows) {
-        for (const key of keys) {
-          params.push(row[key]);
-        }
-      }
+      rows.forEach(row => {
+        keys.forEach(key => params.push(row[key]));
+      });
     } else if (this._type === 'update') {
       const setKeys = Object.keys(this._set);
       if (setKeys.length === 0) {
         throw new Error('No fields to update (provide set object)');
       }
       const setClauses = setKeys.map(k => `${k} = ?`);
-      setKeys.forEach(k => params.push(this._set[k]));
       sql = `UPDATE ${this._table} SET ${setClauses.join(', ')}`;
       if (this._where.length > 0) sql += ` WHERE ${this._where.join(' AND ')}`;
+      if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
+      setKeys.forEach(k => params.push(this._set[k]));
+      params.push(...this._params);
     } else if (this._type === 'delete') {
       sql = `DELETE FROM ${this._table}`;
       if (this._where.length > 0) sql += ` WHERE ${this._where.join(' AND ')}`;
+      if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
+      params.push(...this._params);
     }
 
     if (this._returning.length > 0) {
