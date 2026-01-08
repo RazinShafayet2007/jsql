@@ -2,9 +2,8 @@ import { db, op } from '../src';
 
 describe('QueryBuilder', () => {
   it('builds basic SELECT', () => {
-    const { sql, params } = db()
+    const { sql, params } = db('users')
       .select('id', 'name')
-      .table('users')
       .where({ age: op.gt(30), active: op.eq(true) })
       .toSQL();
 
@@ -12,9 +11,9 @@ describe('QueryBuilder', () => {
     expect(params).toEqual([30, true]);
   });
 
-  it('builds INSERT', () => {
-    const { sql, params } = db()
-      .insert('users', { name: 'Alice', age: 25 })
+  it('builds INSERT (single)', () => {
+    const { sql, params } = db('users')
+      .insert({ name: 'Alice', age: 25 })
       .returning('id')
       .toSQL();
 
@@ -23,8 +22,8 @@ describe('QueryBuilder', () => {
   });
 
   it('builds multi-row INSERT', () => {
-    const { sql, params } = db()
-      .insert('users', [{ name: 'Bob' }, { name: 'Eve', age: 28 }])
+    const { sql, params } = db('users')
+      .insert([{ name: 'Bob' }, { name: 'Eve', age: 28 }])
       .toSQL();
 
     expect(sql).toBe('INSERT INTO users (name, age) VALUES (?, ?), (?, ?)');
@@ -32,8 +31,8 @@ describe('QueryBuilder', () => {
   });
 
   it('builds UPDATE', () => {
-    const { sql, params } = db()
-      .update('users', { age: 26 })
+    const { sql, params } = db('users')
+      .update({ age: 26 })
       .where({ name: op.eq('Alice') })
       .toSQL();
 
@@ -42,8 +41,8 @@ describe('QueryBuilder', () => {
   });
 
   it('builds DELETE', () => {
-    const { sql, params } = db()
-      .delete('users')
+    const { sql, params } = db('users')
+      .delete()
       .where({ active: op.eq(false) })
       .limit(10)
       .toSQL();
