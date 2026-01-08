@@ -1,5 +1,5 @@
 {
-  "name": "jsql",
+  "name": "@razinshafayet/jsql",
   "version": "1.0.0",
   "description": "A pure JavaScript-feeling fluent query builder for SQL",
   "main": "dist/index.js",
