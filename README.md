@@ -12,9 +12,10 @@ A lightweight, chainable, pure-JavaScript-feeling SQL query builder.
 npm install js-sql-builder
 ```
 
+
 ## Usage
 ```ts
-import { db, op } from 'js-sql-builder';
+import { db, op } from 'jsql';
 
 const query = db()
   .select('id', 'name')
