@@ -1,11 +1,18 @@
-# JS SQL Builder
+# jsql
 
 A lightweight, chainable, pure-JavaScript-feeling SQL query builder.
 
 ## Features
 - Full CRUD support (SELECT, INSERT, UPDATE, DELETE)
-- Safe parameterized queries
-- Feels like writing normal JS (no visible SQL strings)
+- Safe parameterized queries (prevents SQL injection)
+- Fluent chaining that feels like normal JavaScript
+- Joins (inner, left, right, full) with simple or multi-condition ON clauses
+- Subqueries (including `op.in(subquery)`, `op.eq(subquery)`, etc.)
+- Aggregation (`groupBy`, `having`)
+- Direct execution with `.exec(client)` (supports pg, mysql2, better-sqlite3, etc.)
+- Transaction helper (`db.transaction(client, async (tx) => ...)`)
+- Zero runtime dependencies
+- Excellent TypeScript support
 
 ## Installation
 ```
