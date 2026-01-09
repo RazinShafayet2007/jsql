@@ -1,6 +1,6 @@
 {
   "name": "@razinshafayet/jsql",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A pure JavaScript-feeling fluent query builder for SQL",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,13 @@
     "build": "tsc",
     "test": "jest"
   },
-  "keywords": ["sql", "query-builder", "fluent", "javascript", "chainable"],
+  "keywords": [
+    "sql",
+    "query-builder",
+    "fluent",
+    "javascript",
+    "chainable"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
