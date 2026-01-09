@@ -51,3 +51,23 @@ describe('QueryBuilder', () => {
     expect(params).toEqual([false]);
   });
 });
+
+it('builds JOIN', () => {
+  const { sql } = db('users')
+    .select('users.*', 'posts.title')
+    .leftJoin('posts', 'users.id', 'posts.user_id')
+    .where({ 'users.active': op.eq(true) })
+    .toSQL();
+
+  expect(sql).toBe('SELECT users.*, posts.title FROM users LEFT JOIN posts ON users.id = posts.user_id WHERE (users.active = ?)');
+});
+
+it('supports subquery in op.in', () => {
+  const sub = db('orders').select('user_id').where({ total: op.gt(100) });
+  const { sql, params } = db('users')
+    .where({ id: op.in(sub) })
+    .toSQL();
+
+  expect(sql).toBe('SELECT * FROM users WHERE (id IN (SELECT user_id FROM orders WHERE (total > ?)))');
+  expect(params).toEqual([100]);
+});

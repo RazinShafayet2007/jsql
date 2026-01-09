@@ -5,6 +5,6 @@ export const op = {
   lt: (val: any) => ({ op: '<', val }),
   lte: (val: any) => ({ op: '<=', val }),
   like: (val: any) => ({ op: 'LIKE', val }),
-  in: (arr: any[]) => ({ op: 'IN', val: arr }),
+  in: (val: any) => ({ op: 'IN', val }),
   not: (condition: any) => ({ op: 'NOT', val: condition }),
 } as const;
