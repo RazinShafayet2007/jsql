@@ -2,7 +2,7 @@
 const config = {
   title: 'jsql',
   tagline: 'Lightweight fluent SQL query builder for JavaScript',
-  url: 'https://your-vercel-url.vercel.app',  // UPDATE THIS AFTER FIRST VERCEL DEPLOY (e.g., jsql.vercel.app)
+  url: 'https://jsql-sandy.vercel.app',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
