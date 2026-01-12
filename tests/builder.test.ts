@@ -71,3 +71,30 @@ it('supports subquery in op.in', () => {
   expect(sql).toBe('SELECT * FROM users WHERE (id IN (SELECT user_id FROM orders WHERE (total > ?)))');
   expect(params).toEqual([100]);
 });
+
+it('supports CTE', () => {
+  const cte = db('temp').select('id').from('users');
+  const { sql } = db('posts')
+    .with('active_users', cte)
+    .where({ user_id: op.in(db('active_users').select('id')) })
+    .toSQL();
+  expect(sql).toContain('WITH active_users AS (SELECT id FROM users)');
+});
+
+it('handles aggregates', () => {
+  const { sql } = db('users')
+    .count('id')
+    .sum('age')
+    .groupBy('active')
+    .having({ 'COUNT(id)': op.gt(5) })
+    .toSQL();
+  expect(sql).toContain('COUNT(id)');
+  expect(sql).toContain('SUM(age)');
+  expect(sql).toContain('GROUP BY active');
+  expect(sql).toContain('HAVING (COUNT(id) > ?)');
+});
+
+it('type-safe schema', () => {
+  const usersSchema = { columns: ['id', 'name'] as const };
+  db('users', usersSchema).select('id', 'name'); // OK, 'email' would error
+});

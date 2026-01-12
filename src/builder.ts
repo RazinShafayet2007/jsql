@@ -1,4 +1,5 @@
 import { op } from './operators';
+import type { TableSchema } from './schema';
 
 type OperationType = 'select' | 'insert' | 'update' | 'delete';
 type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
@@ -10,29 +11,89 @@ interface JoinClause {
   onParams: any[];
 }
 
-export class QueryBuilder {
+interface CteClause {
+  name: string;
+  builder: QueryBuilder<any>;
+}
+
+type Dialect = 'postgres' | 'mysql' | 'sqlite';
+
+export class QueryBuilder<T = any> {
   private _type: OperationType | null = null;
   private _table: string | null = null;
-  private _select: string[] = ['*'];
-  private _values: Record<string, any>[] | null = null;
-  private _set: Record<string, any> = {};
+  private _select: string[] = [];
+  private _values: Partial<T>[] | null = null;
+  private _set: Partial<T> = {};
   private _where: string[] = [];
   private _params: any[] = [];
   private _joins: JoinClause[] = [];
+  private _ctes: CteClause[] = [];
   private _groupBy: string[] = [];
   private _having: string[] = [];
   private _havingParams: any[] = [];
   private _returning: string[] = [];
   private _orderByVal: { field: string; direction: 'ASC' | 'DESC' } | null = null;
   private _limitVal: number | null = null;
+  private _offsetVal: number | null = null;
+  private _dialect: Dialect = 'postgres';
 
-  select(...fields: string[]): this {
+  constructor(private _schema?: TableSchema<T>) { }
+
+  select(...fields: (keyof T | '*')[]): this {
     this._type = 'select';
-    this._select = fields.length > 0 ? fields : ['*'];
+    this._select = fields.length > 0 ? fields as string[] : ['*'];
     return this;
   }
 
-  insert(values: Record<string, any> | Record<string, any>[]): this {
+  count(column: keyof T | '*' = '*'): this {
+    this._type = 'select';
+    this._select.push(`COUNT(${column as string})`);
+    return this;
+  }
+
+  sum(column: keyof T): this {
+    this._type = 'select';
+    this._select.push(`SUM(${column as string})`);
+    return this;
+  }
+
+  avg(column: keyof T): this {
+    this._type = 'select';
+    this._select.push(`AVG(${column as string})`);
+    return this;
+  }
+
+  min(column: keyof T): this {
+    this._type = 'select';
+    this._select.push(`MIN(${column as string})`);
+    return this;
+  }
+
+  max(column: keyof T): this {
+    this._type = 'select';
+    this._select.push(`MAX(${column as string})`);
+    return this;
+  }
+
+  rowNumber(over: string): this {
+    this._type = 'select';
+    this._select.push(`ROW_NUMBER() OVER (${over})`);
+    return this;
+  }
+
+  rank(over: string): this {
+    this._type = 'select';
+    this._select.push(`RANK() OVER (${over})`);
+    return this;
+  }
+
+  denseRank(over: string): this {
+    this._type = 'select';
+    this._select.push(`DENSE_RANK() OVER (${over})`);
+    return this;
+  }
+
+  insert(values: Partial<T> | Partial<T>[]): this {
     this._type = 'insert';
     if (!values || (Array.isArray(values) && values.length === 0)) {
       throw new Error('At least one row required for INSERT');
@@ -41,7 +102,7 @@ export class QueryBuilder {
     return this;
   }
 
-  update(setObj: Record<string, any>): this {
+  update(setObj: Partial<T>): this {
     this._type = 'update';
     if (!setObj || Object.keys(setObj).length === 0) {
       throw new Error('SET object cannot be empty for UPDATE');
@@ -64,17 +125,17 @@ export class QueryBuilder {
     return this.table(table);
   }
 
-  where(conditions: Record<string, any> | QueryBuilder): this {
+  where(conditions: Partial<T> | QueryBuilder<any>): this {
     this._addConditions('AND', conditions);
     return this;
   }
 
-  orWhere(conditions: Record<string, any> | QueryBuilder): this {
+  orWhere(conditions: Partial<T> | QueryBuilder<any>): this {
     this._addConditions('OR', conditions);
     return this;
   }
 
-  having(conditions: Record<string, any>): this {
+  having(conditions: Partial<T>): this {
     this._addConditions('AND', conditions, true);
     return this;
   }
@@ -106,6 +167,21 @@ export class QueryBuilder {
   fullJoin(table: string, on: Record<string, any>): this;
   fullJoin(table: string, onLeftOrObj: string | Record<string, any>, onRight?: string): this {
     return this._addJoin('FULL', table, onLeftOrObj, onRight);
+  }
+
+  with(cteName: string, builder: QueryBuilder<any>): this {
+    this._ctes.push({ name: cteName, builder });
+    return this;
+  }
+
+  dialect(dialect: Dialect): this {
+    this._dialect = dialect;
+    return this;
+  }
+
+  offset(offset: number): this {
+    this._offsetVal = offset;
+    return this;
   }
 
   private _addJoin(type: JoinType, table: string, onLeftOrObj: string | Record<string, any>, onRight?: string): this {
@@ -153,7 +229,7 @@ export class QueryBuilder {
     return this;
   }
 
-  private _addConditions(logicalOp: 'AND' | 'OR', conditions: Record<string, any> | QueryBuilder, isHaving = false): void {
+  private _addConditions(logicalOp: 'AND' | 'OR', conditions: Record<string, any> | QueryBuilder<any>, isHaving = false): void {
     const target = isHaving ? this._having : this._where;
     const targetParams = isHaving ? this._havingParams : this._params;
 
@@ -188,24 +264,46 @@ export class QueryBuilder {
   toSQL(): { sql: string; params: any[] } {
     // Default to SELECT * if no explicit operation but table is set (common/intuitive pattern)
     if (this._type === null) {
-      if (this._table === null) {
+      if (this._table === null && this._ctes.length === 0) {
         throw new Error('Table required');
       }
       this._type = 'select';
       this._select = ['*'];
     }
-  
+
     let sql = '';
     const params: any[] = [];
-  
+
+    if (this._ctes.length > 0) {
+      sql += 'WITH ';
+      sql += this._ctes.map(cte => {
+        const { sql: cteSql, params: cteParams } = cte.builder.toSQL();
+        params.push(...cteParams);
+        return `${cte.name} AS (${cteSql})`;
+      }).join(', ');
+      sql += ' ';
+    }
+
     if (this._type === 'select') {
-      sql = `SELECT ${this._select.join(', ')} FROM ${this._table}`;
+      sql += `SELECT ${this._select.join(', ')} FROM ${this._table}`;
       this._joins.forEach(j => sql += ` ${j.type} JOIN ${j.table} ON ${j.on}`);
       if (this._where.length > 0) sql += ` WHERE ${this._where.join(' AND ')}`;
       if (this._groupBy.length > 0) sql += ` GROUP BY ${this._groupBy.join(', ')}`;
       if (this._having.length > 0) sql += ` HAVING ${this._having.join(' AND ')}`;
       if (this._orderByVal) sql += ` ORDER BY ${this._orderByVal.field} ${this._orderByVal.direction}`;
-      if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
+
+      if (this._limitVal !== null) {
+        if (this._dialect === 'mysql' || this._dialect === 'sqlite') {
+          sql += ` LIMIT ${this._limitVal}`;
+          if (this._offsetVal !== null) sql += ` OFFSET ${this._offsetVal}`;
+        } else { // postgres
+          sql += ` LIMIT ${this._limitVal}`;
+          if (this._offsetVal !== null) sql += ` OFFSET ${this._offsetVal}`;
+        }
+      } else if (this._offsetVal !== null) { // Offset without limit (some dialects allow this or treat it differently, standard PG supports it)
+        sql += ` OFFSET ${this._offsetVal}`;
+      }
+
       params.push(...this._params, ...this._havingParams);
     } else if (this._type === 'insert') {
       if (this._values === null || this._values.length === 0) throw new Error('No values for INSERT');
@@ -217,14 +315,14 @@ export class QueryBuilder {
       const placeholder = `(${keys.map(() => '?').join(', ')})`;
       const placeholders = rows.map(() => placeholder).join(', ');
       sql = `INSERT INTO ${this._table} (${keys.join(', ')}) VALUES ${placeholders}`;
-      rows.forEach(row => keys.forEach(k => params.push(row[k] ?? undefined)));
+      rows.forEach(row => keys.forEach(k => params.push((row as any)[k] ?? undefined)));
     } else if (this._type === 'update') {
       const setKeys = Object.keys(this._set);
       const setClauses = setKeys.map(k => `${k} = ?`);
       sql = `UPDATE ${this._table} SET ${setClauses.join(', ')}`;
       if (this._where.length > 0) sql += ` WHERE ${this._where.join(' AND ')}`;
       if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
-      setKeys.forEach(k => params.push(this._set[k]));
+      setKeys.forEach(k => params.push((this._set as any)[k]));
       params.push(...this._params);
     } else if (this._type === 'delete') {
       sql = `DELETE FROM ${this._table}`;
@@ -232,11 +330,11 @@ export class QueryBuilder {
       if (this._limitVal !== null) sql += ` LIMIT ${this._limitVal}`;
       params.push(...this._params);
     }
-  
+
     if (this._returning.length > 0) {
       sql += ` RETURNING ${this._returning.join(', ')}`;
     }
-  
+
     return { sql, params };
   }
 
@@ -254,7 +352,7 @@ export class QueryBuilder {
   }
 }
 
-export async function transaction(client: any, callback: (tx: QueryBuilder) => Promise<void>): Promise<void> {
+export async function transaction(client: any, callback: (tx: QueryBuilder<any>) => Promise<void>): Promise<void> {
   try {
     await client.query('BEGIN');
     const tx = new QueryBuilder();
@@ -266,8 +364,8 @@ export async function transaction(client: any, callback: (tx: QueryBuilder) => P
   }
 }
 
-export const db = (table?: string): QueryBuilder => {
-  const builder = new QueryBuilder();
+export const db = <T = any>(table?: string, schema?: TableSchema<T>): QueryBuilder<T> => {
+  const builder = new QueryBuilder<T>(schema);
   if (table) builder.table(table);
   return builder;
 };

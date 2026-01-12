@@ -2,6 +2,9 @@
 
 A lightweight, chainable, pure-JavaScript-feeling SQL query builder.
 
+**[Documentation](https://jsql-sandy.vercel.app)**
+
+
 ## Features
 - Full CRUD support (SELECT, INSERT, UPDATE, DELETE)
 - Safe parameterized queries (prevents SQL injection)
