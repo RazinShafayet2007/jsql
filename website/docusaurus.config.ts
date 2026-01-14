@@ -29,7 +29,7 @@ const config = {
       title: 'jsql',
       items: [
         {
-          href: 'https://github.com/razinshafayet/jsql',
+          href: 'https://github.com/RazinShafayet2007/jsql',
           label: 'GitHub',
           position: 'right',
         },
