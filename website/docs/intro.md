@@ -13,4 +13,4 @@ A lightweight, chainable, pure-JavaScript-feeling SQL query builder.
 - Joins, subqueries, transactions in v2+
 - Zero dependencies
 
-Current version: 2.0.0
+Current version: 3.0.0
