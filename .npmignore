@@ -1,0 +1,9 @@
+website/
+tests/
+examples/
+dist/tests/
+node_modules/
+*.log
+.gitignore
+jest.config.js
+tsconfig.json
